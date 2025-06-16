@@ -1,0 +1,7 @@
+Enlace al drive con las órbitas comprimidas. Hay dos archivos. 
+
+Orbits_files_final son las órbitas corregidas hasta un orden de v_x = 1e-8 al primer cruce.
+
+Orbits_files tiene más órbitas (muchas más) pero están corregidas entre v_x = 1e-8 y v_x = 1e-4.
+
+https://drive.google.com/drive/folders/1aup_dMTyYqTl5twJYZJirKF8mqhOHui8?usp=sharing
