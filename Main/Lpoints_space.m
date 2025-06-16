@@ -1,0 +1,285 @@
+%% Cleaning chores
+
+clear 
+close all
+clc
+
+%% Parameters
+
+tol = 1e-9;
+
+% Vector de variables
+syms xS yS zS xpS ypS zpS xppS yppS zppS muS kappaS
+
+mu_vec = 0.01:0.01:0.49;
+
+kappa_vec = [0 1e-11 1e-10 1e-9 1e-8 1e-7 1e-6 1e-5 1e-4 1e-3];
+
+var_vec = [xS yS zS xpS ypS zpS xppS yppS zppS];
+
+% Ecuaciones de movimiento
+var_vec_0 = var_vec*0;
+var_vec_1 = var_vec*0;
+
+[PN_0,H_0,var_vec_0] = Cl_Mov_Eq(muS);
+[PN_1,H_1,var_vec_1] = PN_1_Mov_Eq(muS,kappaS);
+
+for i = 1:9 % Cambio a las mismas variables
+    for j = 1:3
+        PN_0(j).val = subs(PN_0(j).val,var_vec_0(i),var_vec(i));
+        PN_1(j).val = subs(PN_1(j).val,var_vec_1(i),var_vec(i));
+    end
+
+    H_0 = subs(H_0,var_vec_0(i),var_vec(i));
+    H_1 = subs(H_1,var_vec_1(i),var_vec(i));
+end
+
+H = H_0 + H_1;
+
+H = matlabFunction(H); % kappa mu x xP y yP z zP
+
+    for i = 1:3
+
+        PN_0(i).Eq = solve(PN_0(i).val,var_vec(6+i));
+
+    end
+
+    for i = 1:3
+
+        PN_1(i).val = subs(...
+            subs(...
+            subs(...
+            PN_1(i).val,var_vec(7),PN_0(1).Eq...
+            ),var_vec(8),PN_0(2).Eq...
+            ),var_vec(9),PN_0(3).Eq);
+        PN_1(i).val = PN_1(i).val + PN_0(i).Eq;
+        % PN_1(i).func = matlabFunction(PN_1(i).val);
+ 
+    end
+
+for i = 1:25
+    figure(i)
+    hold on
+    grid on
+end
+
+% Jacobiano    
+F_sigma(1).x = var_vec(4);
+F_sigma(2).x = var_vec(5);
+F_sigma(3).x = var_vec(6);
+F_sigma(4).x = PN_1(1).val;
+F_sigma(5).x = PN_1(2).val;
+F_sigma(6).x = PN_1(3).val;
+
+for i=1:6
+    for j=1:6
+        D_sigma_F(i,j) = diff(F_sigma(i).x,var_vec(j));
+    end
+end
+
+J = matlabFunction(D_sigma_F); % kappa mu x xP y yP z zP
+
+J_abs = zeros(length(mu_vec),length(kappa_vec),5,3);
+J_re = zeros(length(mu_vec),length(kappa_vec),5,3);
+J_im = zeros(length(mu_vec),length(kappa_vec),5,3);
+
+for i = 1:length(mu_vec)
+    mu = mu_vec(i);
+
+    for j = 1:length(kappa_vec)
+        kappa = kappa_vec(j);
+
+        for k = 1:3
+            PN_1_subs(k).val = subs(subs(PN_1(k).val,muS,mu),kappaS,kappa);
+        end
+
+        % Puntos de Lagrange
+        [L1,L2,L3,L4,L5] = Lpoints(PN_1_subs,mu,var_vec,tol);
+
+        L(1).mu(i).kappa(j).vec = [L1;0;0;0;0;0];
+        L(2).mu(i).kappa(j).vec = [L2;0;0;0;0;0];
+        L(3).mu(i).kappa(j).vec = [L3;0;0;0;0;0];
+        L(4).mu(i).kappa(j).vec = [L4(1);L4(2);0;0;0;0];
+        L(5).mu(i).kappa(j).vec = [L5(1);L5(2);0;0;0;0];
+        
+        if j ~= 1
+            figure(1)
+            plot(mu,real(log10(L(1).mu(i).kappa(j).vec(1)-L(1).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 0])
+            plot(mu,imag(log10(L(1).mu(i).kappa(j).vec(1)-L(1).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 1])
+            
+            figure(2)
+            plot(mu,real(log10(L(2).mu(i).kappa(j).vec(1)-L(2).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 0])
+            plot(mu,imag(log10(L(2).mu(i).kappa(j).vec(1)-L(2).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 1])
+            
+            figure(3)
+            plot(mu,real(log10(L(3).mu(i).kappa(j).vec(1)-L(3).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 0])
+            plot(mu,imag(log10(L(3).mu(i).kappa(j).vec(1)-L(3).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 1])
+            
+            figure(4)
+            plot(mu,real(log10(L(4).mu(i).kappa(j).vec(1)-L(4).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 0])
+            plot(mu,imag(log10(L(4).mu(i).kappa(j).vec(1)-L(4).mu(i).kappa(1).vec(1))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 1])
+            
+            figure(5)
+            plot(mu,real(log10(L(4).mu(i).kappa(j).vec(2)-L(4).mu(i).kappa(1).vec(2))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 0])
+            plot(mu,imag(log10(L(4).mu(i).kappa(j).vec(2)-L(4).mu(i).kappa(1).vec(2))),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 1])
+
+            for k = 1:5
+                L(k).mu(i).kappa(j).E = H(kappa,mu,L(k).mu(i).kappa(j).vec(1),0,L(k).mu(i).kappa(j).vec(2),0,0,0);
+                figure(5+k)
+                plot(mu, real(log10(L(k).mu(i).kappa(j).E-L(k).mu(i).kappa(1).E)),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 0])
+                plot(mu, imag(log10(L(k).mu(i).kappa(j).E-L(k).mu(i).kappa(1).E)),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 1])
+
+                L(k).mu(i).kappa(j).J = J(kappa,mu,L(k).mu(i).kappa(j).vec(1),0,L(k).mu(i).kappa(j).vec(2),0,0,0);
+                % figure(10+k)
+                % plot(mu, real(log10(L(k).mu(i).kappa(j).J-L(k).mu(i).kappa(1).J)),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 0])
+                % plot(mu, imag(log10(L(k).mu(i).kappa(j).J-L(k).mu(i).kappa(1).J)),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 1])
+
+                L(k).mu(i).kappa(j).J = J(kappa,mu,L(k).mu(i).kappa(j).vec(1),0,L(k).mu(i).kappa(j).vec(2),0,0,0);
+                L(k).mu(i).kappa(j).J_eig = sort(eig(L(k).mu(i).kappa(j).J));
+                % [Aux,index] = sort(abs(L(k).mu(i).kappa(j).J_eig));
+                % L(k).mu(i).kappa(j).J_eig(:) = L(k).mu(i).kappa(j).J_eig(index);
+
+                L(k).mu(i).kappa(j).J_abs_eig = sort(abs(L(k).mu(i).kappa(j).J_eig(1:2:end-1)));
+                % figure(10+k)
+
+                J_abs(i,j,k,:) = sort(abs(L(k).mu(i).kappa(j).J_eig(1:2:end-1)));
+
+                % for l = 1:3
+                %     plot(mu,real(log10(L(k).mu(i).kappa(j).J_abs_eig(l)-L(k).mu(i).kappa(1).J_abs_eig(l))),'.','Color',[Delta(l) Delta(l-2) Delta(l-1)])
+                %     plot(mu,imag(log10(L(k).mu(i).kappa(j).J_abs_eig(l)-L(k).mu(i).kappa(1).J_abs_eig(l))),'.','Color',[1-Delta(l-1) 1-Delta(l) 1-Delta(l-2)])
+                % end
+
+                L(k).mu(i).kappa(j).J_re_eig = sort(abs(real(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+                % figure(15+k)
+
+                J_re(i,j,k,:) = sort(abs(real(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+
+                % for l = 1:3
+                %     plot(mu,real(log10(L(k).mu(i).kappa(j).J_re_eig(l)-L(k).mu(i).kappa(1).J_re_eig(l))),'.','Color',[Delta(l) Delta(l-2) Delta(l-1)])
+                %     plot(mu,imag(log10(L(k).mu(i).kappa(j).J_re_eig(l)-L(k).mu(i).kappa(1).J_re_eig(l))),'.','Color',[1-Delta(l-1) 1-Delta(l) 1-Delta(l-2)])                
+                % end
+
+                L(k).mu(i).kappa(j).J_im_eig = sort(abs(imag(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+                % figure(20+k)
+
+                J_im(i,j,k,:) = sort(abs(imag(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+
+                % for l = 1:3
+                %     plot(mu,real(log10(L(k).mu(i).kappa(j).J_im_eig(l)-L(k).mu(i).kappa(1).J_im_eig(l))),'.','Color',[Delta(l) Delta(l-2) Delta(l-1)])
+                %     plot(mu,imag(log10(L(k).mu(i).kappa(j).J_im_eig(l)-L(k).mu(i).kappa(1).J_im_eig(l))),'.','Color',[1-Delta(l-1) 1-Delta(l) 1-Delta(l-2)])                
+                % end
+                
+            end
+
+        else
+
+            for k = 1:5
+                L(k).mu(i).kappa(j).E = H(kappa,mu,L(k).mu(i).kappa(j).vec(1),0,L(k).mu(i).kappa(j).vec(2),0,0,0);
+                L(k).mu(i).kappa(j).J = J(kappa,mu,L(k).mu(i).kappa(j).vec(1),0,L(k).mu(i).kappa(j).vec(2),0,0,0);
+                L(k).mu(i).kappa(j).J_eig = eig(L(k).mu(i).kappa(j).J);
+                L(k).mu(i).kappa(j).J_abs_eig = sort(abs(L(k).mu(i).kappa(j).J_eig(1:2:end-1)));
+                sort(abs(L(k).mu(i).kappa(j).J_eig(1:2:end-1)))
+                L(k).mu(i).kappa(j).J_re_eig = sort(abs(real(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+                sort(abs(real(L(k).mu(i).kappa(j).J_eig(1:2:end-1))))
+                L(k).mu(i).kappa(j).J_im_eig = sort(abs(imag(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+                sort(abs(imag(L(k).mu(i).kappa(j).J_eig(1:2:end-1))))
+                J_abs(i,j,k,:) = sort(abs(L(k).mu(i).kappa(j).J_eig(1:2:end-1)));
+                J_re(i,j,k,:) = sort(abs(real(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+                J_im(i,j,k,:) = sort(abs(imag(L(k).mu(i).kappa(j).J_eig(1:2:end-1))));
+                % [Aux,index] = sort(abs(L(k).mu(i).kappa(j).J_eig));
+                % L(k).mu(i).kappa(j).J_eig(:) =
+                % L(k).mu(i).kappa(j).J_eig(index); 
+            end
+
+        end
+
+    end
+
+end
+
+for j = 2:length(kappa_vec)
+    for k = 1:5
+        figure(10+k)
+        for l = 1:3
+            plot(mu_vec,real(log10(J_abs(:,j,k,l)-J_abs(:,1,k,l))),'Color',[Delta(l) Delta(l-2) Delta(l-1)])
+            plot(mu_vec,imag(log10(J_abs(:,j,k,l)-J_abs(:,1,k,l))),'Color',[1-Delta(l-1) 1-Delta(l) 1-Delta(l-2)])
+        end
+        figure(15+k)
+        for l = 1:3
+            plot(mu_vec,real(log10(J_re(:,j,k,l)-J_re(:,1,k,l))),'Color',[Delta(l) Delta(l-2) Delta(l-1)])
+            plot(mu_vec,imag(log10(J_re(:,j,k,l)-J_re(:,1,k,l))),'Color',[1-Delta(l-1) 1-Delta(l) 1-Delta(l-2)])
+        end
+        figure(20+k)
+        for l = 1:3
+            plot(mu_vec,real(log10(J_im(:,j,k,l)-J_im(:,1,k,l))),'Color',[Delta(l) Delta(l-2) Delta(l-1)])
+            plot(mu_vec,imag(log10(J_im(:,j,k,l)-J_im(:,1,k,l))),'Color',[1-Delta(l-1) 1-Delta(l) 1-Delta(l-2)])
+        end
+    end
+end
+
+
+
+
+for i = 1:3
+    figure(i)
+    title(strcat('Diferencias en xL, L',num2str(i)))
+    xlabel('μ')
+    ylabel('log10(xL rel - xL cl)')
+end
+
+    figure(4)
+    title(strcat('Diferencias en xL, L',num2str(4)))
+    xlabel('μ')
+    ylabel('log10(xL rel - xL cl)')
+
+    figure(5)
+    title(strcat('Diferencias en yL, L',num2str(4)))
+    xlabel('μ')
+    ylabel('log10(yL rel - yL cl)')
+
+for i = 1:5
+    figure(5+i)
+    title(strcat('Diferencias en E, L',num2str(i)))
+    xlabel('μ')
+    ylabel('log10(E rel - E cl)')
+
+    figure(10+i)
+    title(strcat('Diferencias en abs(λ), L',num2str(i)))
+    xlabel('μ')
+    ylabel('log10(|λ| rel - |λ| cl)')    
+
+    figure(15+i)
+    title(strcat('Diferencias en abs(Re(λ)), L',num2str(i)))
+    xlabel('μ')
+    ylabel('log10(|Re(λ)| rel - |Re(λ)| cl)')  
+
+    figure(20+i)
+    title(strcat('Diferencias en abs(Im(λ)), L',num2str(i)))
+    xlabel('μ')
+    ylabel('log10(|Im(λ)| rel - |Im(λ)| cl)')
+end
+
+% plot_vec = 0;
+% 
+% for i = 1:length(mu_vec)
+%     for j = 1:length(kappa_vec)
+%         for k = 1:5
+% 
+%             plot_vec = [plot_vec; L(k).mu(i).kappa(j).eigval];
+% 
+%         end
+%     end
+% end
+% 
+%    figure(10+k)
+%    plot3(mu*ones(1,6),real(L(k).mu(i).kappa(j).eigval),imag(L(k).mu(i).kappa(j).eigval),'.','Color',[(j-1)/(length(kappa_vec)-1) 0 (i-1)/(length(mu_vec)-1)])
+
+%% FUNCIONES
+
+function Out = Delta(n)
+    if n == 1
+        Out = 1;
+    else
+        Out = 0;
+    end
+end
