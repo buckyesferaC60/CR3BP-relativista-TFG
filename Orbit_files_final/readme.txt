@@ -1,0 +1,1 @@
+This folder is used to store the orbits according to the "Write_Orbit_final.m" function; it is suppososed to be used in order to store the orbits cerrected with a very low tolerance (Ly_tol = 1e-8) for vx at the half-orbit point.
